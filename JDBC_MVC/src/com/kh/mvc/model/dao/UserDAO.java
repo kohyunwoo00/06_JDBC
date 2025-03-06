@@ -1,5 +1,10 @@
 package com.kh.mvc.model.dao;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,20 +50,191 @@ public class UserDAO {
 	 *  8) 결과 반환 ->  Controller  SELECT -> 6_1에서 만든것 / DML : 처리된 행의 개수
 	 */
 	
-	public List<UserDTO> findAll() {
+	private final String URL = "jdbc:oracle:thin:@112.221.156.34:12345:XE";
+	private final String USERNAME = "KH01_KHW";
+	private final String PASSWORD = "KH1234";
+	
+	static {
+		try {
+			Class.forName("oracle.jdbc.driver.OracleDriver");
+		} catch (ClassNotFoundException e) {
+			System.out.println("ojdbc 잘 써졌나 안써졌나");
+		}
+	}
+	
+	public List<UserDTO> findAll(Connection conn) {
 		/*
 		 * VO / DTO / Entity
+		 * 
 		 * 
 		 * 1명의 회원의 정보는 1개의 UserDTO객체의 필드에 값을 담아야곘다
 		 * 
 		 * 문제점 : userDTO가 몇개가 나올지 알 수 없음
 		 */
 		List<UserDTO> list = new ArrayList(); 
-		String sql = "SELECT" + "USER _NO" + ", USER_ID" + ", USER_PW" + ", USER_NAME" + ", ENROLL_DATE "
+		String sql = "SELECT " + "USER_NO" + ", USER_ID" + ", USER_PW" + ", USER_NAME" + ", ENROLL_DATE "
 									+ "FROM " + "TB_USER " + "ORDER " + "BY " + "ENROLL_DATE DESC";
 		
+		// Connection conn = null;
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		
+		try {
+		//  conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+			
+		 pstmt = conn.prepareStatement(sql);
+		 rs = pstmt.executeQuery();
+			
+			while(rs.next()) {
+				// 조회 결과 컬럼 값을 DTO필드에 담는 작업 및 리스트에 요소로 추가
+				UserDTO user = new UserDTO();
+				user.setUserNo(rs.getInt("USER_NO"));
+				user.setUserId(rs.getString("USER_ID"));
+				user.setUserPw(rs.getString("USER_PW"));
+				user.setUserName(rs.getString("USER_NAME"));
+				user.setEnrollDate(rs.getDate("ENROLL_DATE"));
+				
+				list.add(user);
+			}
+			
+			
+		
+		} catch(SQLException e) {
+			e.printStackTrace();
+			System.out.println("오타 났는지 확인하기 ");
+		} finally {
+			try {
+				if(rs != null) rs.close();
+				if(pstmt != null) pstmt.close();
+				if(conn != null) conn.close();
+			} catch(SQLException e) {
+				System.out.println("DB서버 이상");
+			}
+		}
 		return list;
 	}
+	
+	/**
+	 * 
+	 * @param user 사용자가 입력한 아이디 / 비밀번호 / 이름이 각각 필드에 대입
+	 * @return 아직 뭐 돌려줄지 안정함
+	 */
+	public int insertUser(UserDTO user) {
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		
+		String sql = "INSERT " + "INTO " + "TB_USER " +  "VALUES " + 
+								"(" + "SEQ_USER_NO.NEXTVAL" + ", ?" + ", ?" + ", ?" + ", SYSDATE" + ")";
+		
+		int result = 0;
+		
+		try {
+			conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+			
+			// conn.setAutoCommit(false);
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setString(1, user.getUserId());
+			pstmt.setString(2, user.getUserPw());
+			pstmt.setString(3, user.getUserName());
+			
+			result = pstmt.executeUpdate();
+			
+		} catch(SQLException e) {
+			e.printStackTrace();
+		} finally {
+				try {
+					if(pstmt != null && !pstmt.isClosed()) pstmt.close();	
+				} catch(Exception e) {
+					e.printStackTrace();
+				}
+				try {
+					if(conn != null) conn.close();
+				} catch(Exception e) {
+					e.printStackTrace();
+				}
+		}
+		return result;
+		
+		
+	}
+	
+	public int updatePw(UserDTO user) {
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		
+		String sql = "UPDATE " + "TB_USER " + "SET " + "USER_PW = ? " + "WHERE " + "USER_ID = ?" + " AND " + "USER_PW = ?";
+		int result = 0;
+		
+		try {
+			conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setString(1, user.getNewUserPw());
+			pstmt.setString(2, user.getUserId());
+			pstmt.setString(3, user.getUserPw());
+			
+			result = pstmt.executeUpdate();
+			
+			
+		} catch(SQLException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if(pstmt != null) pstmt.close();
+				if(conn != null) conn.close();
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return result;
+		
+	}
+	
+	public int deleteUser(UserDTO user)  {
+		Connection conn = null;
+		PreparedStatement pstmt = null;
+		
+		String sql = "DELETE " +  "FROM " + "TB_USER " + "WHERE " + "USER_ID = ? " + "AND " + "USER_PW = ?";
+		
+		int result = 0;
+		
+		try {
+			conn = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+			pstmt = conn.prepareStatement(sql);
+			
+			pstmt.setString(1, user.getUserId());
+			pstmt.setString(2, user.getUserPw());
+			
+			result = pstmt.executeUpdate();
+			
+		} catch(SQLException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				if(pstmt != null) pstmt.close();
+				if(conn != null) conn.close();
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return result;
+	}
+	
+	public int findUser(UserDTO user) {
+		
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 }
